@@ -1,6 +1,5 @@
 # Project Specification
-> Generated: 2026-05-04  
-> Deadline: 3 days from assignment acceptance (exact date depends on acceptance date)  
+> Generated: 2026-05-04    
 > Repo: valura-ai-ai-engineer-assignment-deepd9137-main
 
 ---
