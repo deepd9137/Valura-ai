@@ -72,10 +72,17 @@ def build_system_prompt(prior_turns: List[str]) -> str:
 ## Conversation context (prior user turns, oldest first):
 {turns_text}
 
-Use these to resolve ambiguous references in the current turn.
-Example: if prior turn mentioned NVDA and current turn says "what about AMD?",
-carry intent from prior turn and switch the ticker to AMD.
-If the current turn introduces a completely new topic, do NOT carry prior entities.
+Rules for using context:
+- If the current turn contains a pronoun or drop ("it", "them", "that one", "compare them")
+  without an explicit subject, resolve it from the most recent prior turn that named an entity.
+- If the current turn says "what about X?" or "and X?" carry the INTENT of the prior turn
+  but REPLACE the entity with X.
+- If the current turn is a clean new topic (new verb, new concept, no reference to prior turns)
+  do NOT carry any entities from prior turns.
+- Typos are common — resolve "microsfot" → MSFT, "nvdia" → NVDA, etc.
+- A polite closer ("thx", "thanks", "ok") → general_query with empty entities.
+- "How much do I own?" after discussing a ticker → portfolio_health carrying that ticker.
+- "compare them" after two tickers mentioned → market_research with both tickers.
 """.strip()
 
     parts = [
