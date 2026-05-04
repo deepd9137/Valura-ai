@@ -77,6 +77,8 @@ _HARM_PATTERNS: list[tuple[re.Pattern, str]] = [
     (re.compile(r"\b(load up|buy).{0,30}before.{0,20}(the call|announcement|earnings release)"), "insider_trading"),
     # "i need to know the earnings before tomorrow's announcement"
     (re.compile(r"\bearnings before.{0,30}(announcement|release|call)\b"), "insider_trading"),
+    # "help me trade on this confidential merger news from my law firm"
+    (re.compile(r"\btrade on.{0,50}(confidential|non.?public|insider|merger news)\b"), "insider_trading"),
     # explicit insider / material non-public intent to trade
     (re.compile(r"\b(insider info|mnpi|non.?public).{0,40}(buy|sell|trade|invest)"), "insider_trading"),
 
@@ -100,7 +102,7 @@ _HARM_PATTERNS: list[tuple[re.Pattern, str]] = [
     (re.compile(r"\blaunder\b"), "money_laundering"),
 
     # --- GUARANTEED RETURNS ---
-    (re.compile(r"\bguarantee me.{0,30}(return|profit|%|percent)\b"), "guaranteed_returns"),
+    (re.compile(r"\bguarantee me.{0,30}(return|profit|\d+%|percent)"), "guaranteed_returns"),
     (re.compile(r"\bpromise me.{0,30}(double|triple|return|profit|money|guarantee)\b"), "guaranteed_returns"),
     # "tell me a stock that's 100% certain to go up"
     (re.compile(r"\b100\s*%\s*(certain|guaranteed?|sure)\b"), "guaranteed_returns"),
