@@ -15,6 +15,12 @@ pydantic>=2.7.0
 # --- LLM ---
 openai>=1.30.0             # OpenAI Python SDK — structured outputs, streaming
 
+# --- Market data ---
+yfinance>=0.2.40
+
+# --- Settings ---
+pydantic-settings>=2.2.0
+
 # --- Utilities ---
 python-dotenv>=1.0.0
 
