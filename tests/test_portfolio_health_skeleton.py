@@ -226,3 +226,92 @@ def test_missing_prices_do_not_crash(load_user, mock_llm):
 
     assert response is not None
     assert "disclaimer" in response
+
+
+# ---------------------------------------------------------------------------
+# Multi-currency (usr_006) — USD/EUR/GBP/JPY positions
+# ---------------------------------------------------------------------------
+
+def test_multi_currency_usr006_does_not_crash(load_user, mock_llm):
+    """usr_006 has positions in EUR, GBP, JPY; must not crash."""
+    # AAPL/VOO in USD, ASML.AS in EUR, HSBA.L in GBP, 7203.T in JPY
+    prices = {
+        "AAPL": 190.0,
+        "VOO": 480.0,
+        "ASML.AS": 700.0,
+        "HSBA.L": 7.20,
+        "7203.T": 2600.0,
+    }
+    fx_rates = {"USD": 1.0, "EUR": 1.10, "GBP": 1.28, "JPY": 0.0067}
+    user = load_user("usr_006")
+    response = run(user, llm=mock_llm, market_data=_mock_md(prices=prices, fx_rates=fx_rates))
+
+    assert response is not None
+    assert "disclaimer" in response
+    assert "not investment advice" in response["disclaimer"].lower()
+
+
+def test_multi_currency_fx_conversion_applied(load_user, mock_llm):
+    """
+    FX conversion must produce a total_value > 0 and concentrate risk should
+    be computed in base currency (USD), not raw position currency.
+    """
+    prices = {
+        "AAPL": 190.0,
+        "VOO": 480.0,
+        "ASML.AS": 700.0,
+        "HSBA.L": 7.20,
+        "7203.T": 2600.0,
+    }
+    fx_rates = {"USD": 1.0, "EUR": 1.10, "GBP": 1.28, "JPY": 0.0067}
+    user = load_user("usr_006")
+    response = run(user, llm=mock_llm, market_data=_mock_md(prices=prices, fx_rates=fx_rates))
+
+    # total_value should reflect USD-converted values, not raw numbers
+    # AAPL: 45*190=8550, VOO: 18*480=8640, ASML.AS: 8*700*1.10=6160,
+    # HSBA.L: 250*7.20*1.28=2304, 7203.T: 200*2600*0.0067=3484 → ~29138 USD
+    assert response["total_value"] > 20_000  # clearly not raw-JPY inflated
+    assert response["total_value"] < 50_000  # clearly not JPY-confused (~520k JPY raw)
+
+
+def test_multi_currency_benchmark_is_msci_world(load_user, mock_llm):
+    """usr_006 prefers MSCI World benchmark — must be reflected in comparison."""
+    prices = {"AAPL": 190.0, "VOO": 480.0, "ASML.AS": 700.0, "HSBA.L": 7.20, "7203.T": 2600.0}
+    fx_rates = {"USD": 1.0, "EUR": 1.10, "GBP": 1.28, "JPY": 0.0067}
+    user = load_user("usr_006")
+    response = run(user, llm=mock_llm, market_data=_mock_md(prices=prices, fx_rates=fx_rates))
+
+    assert response["benchmark_comparison"]["benchmark"] == "MSCI World"
+
+
+# ---------------------------------------------------------------------------
+# Retiree portfolio (usr_008) — conservative, all USD, 7 positions
+# ---------------------------------------------------------------------------
+
+def test_retiree_usr008_does_not_crash(load_user, mock_llm):
+    """usr_008 is a conservative dividend retiree — must not crash."""
+    prices = {
+        "JNJ": 155.0, "PG": 160.0, "KO": 65.0,
+        "VYM": 120.0, "SCHD": 85.0, "BND": 72.0, "TLT": 95.0,
+    }
+    user = load_user("usr_008")
+    response = run(user, llm=mock_llm, market_data=_mock_md(prices=prices))
+
+    assert response is not None
+    assert "disclaimer" in response
+    assert "not investment advice" in response["disclaimer"].lower()
+
+
+def test_retiree_diversified_portfolio_is_low_or_moderate_concentration(load_user, mock_llm):
+    """
+    usr_008 holds 7 positions with no single dominant holding;
+    concentration flag should not be 'high'.
+    """
+    prices = {
+        "JNJ": 155.0, "PG": 160.0, "KO": 65.0,
+        "VYM": 120.0, "SCHD": 85.0, "BND": 72.0, "TLT": 95.0,
+    }
+    user = load_user("usr_008")
+    response = run(user, llm=mock_llm, market_data=_mock_md(prices=prices))
+
+    assert response["concentration_risk"]["flag"] in {"low", "moderate"}
