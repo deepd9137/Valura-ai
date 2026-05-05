@@ -22,12 +22,13 @@ def route(classification: ClassificationResult, user: Dict[str, Any]) -> Dict[st
     agent = classification.agent
     entities = classification.entities
 
-    if agent == "portfolio_health":
+    # portfolio_query is a legacy alias used in conversation fixtures
+    if agent in ("portfolio_health", "portfolio_query"):
         try:
             from src.agents.portfolio_health import run
             return run(user)
         except Exception as exc:
             logger.error("Portfolio health agent failed: %s", exc, exc_info=True)
-            return run_stub(agent, entities, agent)
+            return run_stub("portfolio_health", entities, agent)
 
     return run_stub(agent, entities, agent)
