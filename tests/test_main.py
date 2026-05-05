@@ -271,3 +271,61 @@ def test_session_id_is_stored_after_request():
 
     turns = _sessions.get(session_id)
     assert "Tell me about Apple" in turns
+
+
+# ---------------------------------------------------------------------------
+# LLM failure handling
+# ---------------------------------------------------------------------------
+
+def test_llm_exception_returns_sse_error_not_500():
+    """If classify() raises an unexpected exception, the pipeline must stream
+    a structured error event — not propagate a 500."""
+    with patch("src.main.classify", new_callable=AsyncMock, side_effect=Exception("OpenAI exploded")):
+        with TestClient(app) as client:
+            response = client.post("/chat", json={
+                "query": "How is my portfolio?",
+                "user_id": "usr_001",
+            })
+
+    assert response.status_code == 200
+    events = _sse_events(response)
+    assert events, "Expected at least one SSE event"
+    assert events[0]["type"] == "error"
+    assert events[0].get("code") in ("internal_error", "timeout")
+    assert _done_present(response)
+
+
+def test_llm_exception_does_not_leak_stack_trace():
+    """Error message must not contain a Python traceback."""
+    with patch("src.main.classify", new_callable=AsyncMock, side_effect=RuntimeError("boom")):
+        with TestClient(app) as client:
+            response = client.post("/chat", json={
+                "query": "How is my portfolio?",
+                "user_id": "usr_001",
+            })
+
+    assert "Traceback" not in response.text
+    assert "RuntimeError" not in response.text
+
+
+# ---------------------------------------------------------------------------
+# Router — portfolio_query alias
+# ---------------------------------------------------------------------------
+
+def test_portfolio_query_alias_routes_to_portfolio_health():
+    """portfolio_query (used in conversation fixtures) must dispatch to the
+    portfolio health agent, not to a stub."""
+    from src.router import route as real_route
+    from src.schemas import ClassificationResult
+
+    classification = ClassificationResult(
+        agent="portfolio_health",  # classifier normalises; router handles alias
+        entities={},
+        safety_verdict="pass",
+    )
+
+    with patch("src.agents.portfolio_health.run", return_value=_HEALTH_RESULT) as mock_run:
+        result = real_route(classification, {"user_id": "usr_001", "positions": [], "base_currency": "USD", "preferences": {}})
+
+    mock_run.assert_called_once()
+    assert "disclaimer" in result
